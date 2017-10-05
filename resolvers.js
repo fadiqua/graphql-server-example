@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { PubSub } from 'graphql-subscriptions';
+import joinMonster from 'join-monster';
 import _ from 'lodash';
 import { requiresAdmin, requiresAuth } from './permissions';
 import { refreshTokens, tryLogin } from './auth';
@@ -47,7 +48,20 @@ export default {
         },
     },
     Query: {
-        allUsers: (parent, args, { models }) => models.User.findAll(),
+        allAuthors: (parent, args, { models }, info) =>
+            joinMonster(info, args, sql =>
+                models.sequelize.query(sql, { type: models.sequelize.QueryTypes.SELECT }),
+            ),
+        getBook: (parent, args, { models }, info) =>
+            joinMonster(info, args, sql =>
+                models.sequelize.query(sql, { type: models.sequelize.QueryTypes.SELECT }),
+            ),
+        allBooks: (parent, args, { models }, info) =>
+            joinMonster(info, args, sql =>
+                models.sequelize.query(sql, { type: models.sequelize.QueryTypes.SELECT }),
+            ),
+        allUsers: requiresAuth.createResolver((parent, args, { models }) => models.User.findAll()),
+        // allUsers: (parent, args, { models }) => models.User.findAll(),
         me: (parent, args, { models, user }) => {
             if(!user) {
                 return null
@@ -65,7 +79,9 @@ export default {
             return models.Suggestion.findAll({ where: {
                 creatorId
             }})
-        }
+        },
+        suggestions: (parent, { limit, offset }, { models }) =>
+            models.Suggestion.findAll({ limit, offset })
     }
     ,
     Mutation: {
@@ -83,28 +99,45 @@ export default {
             username: newUsername
         }, { where: { username }}),
         deleteUser: (parent, args, { models }) => models.User.destroy({ where: args}),
-        createBoard: requiresAuth.createResolver((parent, args, { models }) =>
-            models.Board.create(args)),
+        // createBoard: requiresAuth.createResolver((parent, args, { models }) =>
+        //     models.Board.create(args)),
+        createBoard: (parent, args, { models }) =>
+            models.Board.create(args),
         createSuggestion: (parent, args, { models }) => models.Suggestion.create(args),
         register: async (parent, args, { models }) => {
-            // const user =
-            const user = _.pick(args, ['username','isAdmin'])
-            const localAuth = _.pick(args, ['email','password']);
+            const user = _.pick(args, ['username', 'isAdmin']);
+            const localAuth = _.pick(args, ['email', 'password']);
             const passwordPromise = bcrypt.hash(localAuth.password, 12);
             const createUserPromise = models.User.create(user);
-            // localAuth.password = await bcrypt.hash(localAuth.password, 12)
-            // const createdUser = await models.User.create(user);
-            const [ password, createdUser ] = Promise.all(passwordPromise, createUserPromise);
+            const [password, createdUser] = await Promise.all([passwordPromise, createUserPromise]);
             localAuth.password = password;
             return models.LocalAuth.create({
                 ...localAuth,
-                user_id: createdUser.id
-            })
+                user_id: createdUser.id,
+            });
         },
         login: async (parent, { email, password }, { models, SECRET }) => {
             return  tryLogin(email, password, models, SECRET)
         },
         refreshTokens: (parent, { token, refreshToken }, { models, SECRET }) =>
             refreshTokens(token, refreshToken, models, SECRET),
+        createBook: async (parent, args, { models }) => {
+            const book = await models.Book.create(args);
+            return {
+                ...book.dataValues,
+                authors: [],
+            };
+        },
+        createAuthor: async (parent, args, { models }) => {
+            const author = await models.Author.create(args);
+            return {
+                ...author.dataValues,
+                books: [],
+            };
+        },
+        addBookAuthor: async (parent, args, { models }) => {
+            await models.BookAuthor.create(args);
+            return true;
+        },
     }
 }

@@ -1,9 +1,10 @@
 import Sequelize from 'sequelize';
 
 const sequelize = new Sequelize(
-    'test_graphql_db',
-    'test_graphql_admin',
-    'iamapassword',
+    // process.env.DB_NAME,
+    // process.env.test_graphql_admin,
+    // process.env.DB_PASSWORD,
+    'test_graphql_db', 'test_graphql_admin', 'iamapassword',
     {
         host: 'localhost',
         dialect: 'postgres',
@@ -16,6 +17,9 @@ const db = {
     Suggestion: sequelize.import('./suggestion'),
     FbAuth: sequelize.import('./fbAuth'),
     LocalAuth: sequelize.import('./localAuth'),
+    Author: sequelize.import('./author'),
+    Book: sequelize.import('./book'),
+    BookAuthor: sequelize.import('./bookAuthor'),
 };
 
 Object.keys(db).forEach((modelName) => {

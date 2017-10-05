@@ -19,7 +19,7 @@ export default `
     
     type User {
         id: Int!
-        username: String!
+        username: String
         createdAt: String!
         updatedAt: String!
         boards: [Board!]!
@@ -32,15 +32,34 @@ export default `
        refreshToken: String!
     }
     
+    type Author {
+        id: Int!
+        firstname: String!
+        lastname: String!
+        primary: Boolean
+        books: [Book!]!
+    }
+    type Book {
+        id: Int!
+        title: String!
+        authors: [Author!]!
+    }
+
     type Query {
+        getBook(id: Int!): Book
+        allBooks: [Book!]!
+        allAuthors: [Author]!
         allUsers: [User!]!
         me: User
         userBoards(owner: Int!): [Board!]!
         userSuggestions(creatorId: String!): [Suggestion!]!
-        
+        suggestions(limit: Int!, offset: Int!): [Suggestion!]!
     }
     
     type Mutation {
+        createAuthor(firstname: String!, lastname: String!): Author!
+        createBook(title: String!): Book!
+        addBookAuthor(bookId: Int!, authorId: Int!, primary: Boolean!): Boolean!
         createUser(username: String!): User
         updateUser(username: String!, newUsername: String!): [Int!]!
         deleteUser(username: String!): Int!

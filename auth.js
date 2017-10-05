@@ -45,20 +45,24 @@ export const refreshTokens = async (token, refreshToken, models, SECRET) => {
     };
 };
 
+
 export const tryLogin = async (email, password, models, SECRET) => {
-    const user = await models.User.findOne({ where: { email }, raw: true });
-    if (!user) {
+    const localAuth = await models.LocalAuth.findOne({ where: { email }, raw: true });
+    if (!localAuth) {
         // user with provided email not found
         throw new Error('Invalid login');
     }
 
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await bcrypt.compare(password, localAuth.password);
     if (!valid) {
         // bad password
         throw new Error('Invalid login');
     }
 
+    const user = await models.User.findOne({ where: { id: localAuth.user_id }, raw: true });
+
     const [token, refreshToken] = await createTokens(user, SECRET);
+
     return {
         token,
         refreshToken,
