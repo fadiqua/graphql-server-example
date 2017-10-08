@@ -20,7 +20,7 @@ export const requiresAuth = createResolver((parent, args, context) => {
 export const requiresAdmin = requiresAuth.createResolver(
     (parent, args, context) => {
         if (!context.user.isAdmin) {
-            throw new Error('Requires admin access');
+            return Promise.reject('Requires admin access');
         }
     },
 );

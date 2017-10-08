@@ -44,10 +44,18 @@ export default `
         title: String!
         authors: [Author!]!
     }
+    
+    input Upload {
+        name: String!
+        type: String!
+        size: Int!
+        path: String!
+    }
 
     type Query {
+        dummy: String!
         getBook(id: Int!): Book
-        allBooks: [Book!]!
+        allBooks(key: Int!, limit: Int!): [Book!]!
         allAuthors: [Author]!
         allUsers: [User!]!
         me: User
@@ -68,6 +76,7 @@ export default `
         register(username: String!, email: String!, password: String!, isAdmin: Boolean): User!
         login(email: String!, password: String!): AuthPayload!
         refreshTokens(token: String!, refreshToken: String!): AuthPayload!
+        uploadFile(file: Upload!): Boolean!
     }
     
     schema {

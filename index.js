@@ -9,6 +9,7 @@ import _ from 'lodash';
 import { createServer } from 'http';
 import { execute, subscribe } from 'graphql';
 import { SubscriptionServer } from 'subscriptions-transport-ws';
+import { apolloUploadExpress } from 'apollo-upload-server'
 import DataLoader from 'dataloader';
 import passport from 'passport';
 import FacebookStrategy from 'passport-facebook';
@@ -62,53 +63,36 @@ app.get('/auth/facebook/callback', passport.authenticate('facebook', {
 const addUser = async (req, res, next) => {
     const token = req.headers['x-token'];
     console.log(token, 'tokeeeeeeeen')
-    if (!token) {
-        return next();
-    }
-
-    const cookieToken = req.cookies.token;
-    if (!cookieToken || token !== cookieToken) {
-        return next();
-    }
-    try {
-        const { user } = jwt.verify(token, SECRET);
-        req.user = user;
-    } catch (err) {
-        const refreshToken = req.headers['x-refresh-token'];
-
-        if (!refreshToken) {
-            return next();
+    if (token) {
+        try {
+            const { user } = jwt.verify(token, SECRET);
+            req.user = user;
+        } catch (err) {
+            const refreshToken = req.headers['x-refresh-token'];
+            const newTokens = await refreshTokens(
+                token,
+                refreshToken,
+                models,
+                SECRET,
+            );
+            if (newTokens.token && newTokens.refreshToken) {
+                res.set('Access-Control-Expose-Headers', 'x-token, x-refresh-token');
+                res.set('x-token', newTokens.token);
+                res.set('x-refresh-token', newTokens.refreshToken);
+            }
+            req.user = newTokens.user;
         }
-        const cookieRefreshToken = req.cookies['refresh-token'];
-        if (!cookieRefreshToken || refreshToken !== cookieRefreshToken) {
-            return next();
-        }
-        const newTokens = await refreshTokens(token, refreshToken, models, SECRET);
-        if (newTokens.token && newTokens.refreshToken) {
-            // settings headers used by the client to store the tokens in localStorage
-            res.set('Access-Control-Expose-Headers', 'x-token, x-refresh-token');
-            res.set('x-token', newTokens.token);
-            res.set('x-refresh-token', newTokens.refreshToken);
-            // set cookie
-            res.cookie('token', newTokens.token, { maxAge: 60 * 60 * 24 * 7, httpOnly: true });
-            res.cookie('refresh-token', newTokens.refreshToken, {
-                maxAge: 60 * 60 * 24 * 7,
-                httpOnly: true,
-            });
-        }
-        req.user = newTokens.user;
     }
-
-    return next();
+    next();
 };
 app.use(cors('*'));
-// app.use(cors({ origin: 'http://localhost:3001', credentials: true }));
 app.use(cookieParser());
 app.use(addUser);
 app.use(
     '/graphiql',
     graphiqlExpress({
         endpointURL: '/graphql',
+        subscriptionsEndpoint: 'ws://localhost:3091/subscriptions'
     }),
 );
 
@@ -126,7 +110,9 @@ const batchSuggestions = async (keys, { Suggestion }) => {
 }
 app.use(
     '/graphql',
-    bodyParser.json(),
+    apolloUploadExpress({
+        uploadDir: './'
+    }),
     graphqlExpress(req => ({
         schema,
         context: {
@@ -142,7 +128,7 @@ const server = createServer(app);
 
 models.sequelize.sync().then(() => {
     server.listen(3091, () => {
-        new SubscriptionServer({
+        SubscriptionServer.create({
             execute,
             subscribe,
             schema,

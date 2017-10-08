@@ -48,17 +48,23 @@ export default {
         },
     },
     Query: {
+        dummy: (parent, args, { models }, info) => 'dummy',
         allAuthors: (parent, args, { models }, info) =>
+        // It doesn't run sql for you, it tells you what should be and then we are going to
+        // run using sequlize, just map graphql query into sql statement
             joinMonster(info, args, sql =>
                 models.sequelize.query(sql, { type: models.sequelize.QueryTypes.SELECT }),
+                { dialect: 'pg' }
             ),
         getBook: (parent, args, { models }, info) =>
             joinMonster(info, args, sql =>
                 models.sequelize.query(sql, { type: models.sequelize.QueryTypes.SELECT }),
+                { dialect: 'pg' }
             ),
         allBooks: (parent, args, { models }, info) =>
             joinMonster(info, args, sql =>
                 models.sequelize.query(sql, { type: models.sequelize.QueryTypes.SELECT }),
+                { dialect: 'pg' }
             ),
         allUsers: requiresAuth.createResolver((parent, args, { models }) => models.User.findAll()),
         // allUsers: (parent, args, { models }) => models.User.findAll(),
@@ -139,5 +145,8 @@ export default {
             await models.BookAuthor.create(args);
             return true;
         },
+        uploadFile: async (parent, args, { models }) => {
+            return {}
+        }
     }
 }
